@@ -1,0 +1,43 @@
+name: scan-manifests
+
+# Scans every manifest on push/PR. Demonstrates the "shift-left" idea from the
+# lab: catch insecure Kubernetes config in CI, before it ever reaches a cluster.
+#
+# The HARDENED manifests are the gate — they must be clean. The VULNERABLE
+# manifests are expected to have findings, so they are linted for visibility
+# only (non-blocking).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install scanners
+        run: |
+          curl -sSL https://github.com/stackrox/kube-linter/releases/download/v0.6.8/kube-linter-linux.tar.gz \
+            | sudo tar xz -C /usr/local/bin kube-linter
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | sudo tar xz -C /usr/local/bin kubeconform
+
+      - name: Schema validation (kubeconform)
+        run: |
+          find exercises cluster -name '*.yaml' -print0 \
+            | xargs -0 kubeconform -strict -summary -ignore-missing-schemas
+
+      - name: Lint vulnerable manifests (non-blocking, for visibility)
+        continue-on-error: true
+        run: |
+          find exercises -path '*/vulnerable/*' -name '*.yaml' -print0 \
+            | xargs -0 -I{} sh -c 'echo "--- {}"; kube-linter lint "{}" || true'
+
+      - name: Lint hardened manifests (GATE — must be clean)
+        run: |
+          find exercises -path '*/hardened/*' -name '*.yaml' -print0 \
+            | xargs -0 kube-linter lint

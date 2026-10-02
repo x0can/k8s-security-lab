@@ -1,0 +1,20 @@
+# Local tooling binaries (installed by scripts/install-tools.sh)
+bin/
+kube-linter
+kubeconform
+kind
+kubectl
+
+# kubeconfig / cluster state
+*.kubeconfig
+kubeconfig
+
+# student scratch work
+solutions-mine/
+*.local.yaml
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

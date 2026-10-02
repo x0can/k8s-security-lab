@@ -1,0 +1,38 @@
+# VULNERABLE — do not ship this.
+# A ServiceAccount for a small app, but bound to cluster-admin-like power.
+# This is the single most common way a compromised pod becomes a compromised
+# cluster.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app
+  namespace: lab-baseline
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: app-everything
+rules:
+  # PROBLEM: wildcard verbs on wildcard resources across ALL API groups.
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  # PROBLEM: privilege-escalation verbs. Even alone these let the SA grant
+  # itself more power or read every secret in the cluster.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "clusterroles", "rolebindings", "clusterrolebindings"]
+    verbs: ["escalate", "bind"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: app-everything
+subjects:
+  - kind: ServiceAccount
+    name: app
+    namespace: lab-baseline
+roleRef:
+  kind: ClusterRole
+  name: app-everything
+  apiGroup: rbac.authorization.k8s.io

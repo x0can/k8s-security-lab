@@ -1,0 +1,75 @@
+# HARDENED — secrets referenced, never embedded; image pinned by digest.
+#
+# The Secret below is still base64 (that is NOT encryption — it is encoding).
+# In production you'd use a sealed/external secret store (see the exercise
+# README). The point of THIS file is correct *referencing*: the workload never
+# contains the raw value.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: payments-secrets
+  namespace: lab-baseline
+type: Opaque
+stringData:                         # stringData is auto-encoded by the API
+  DB_PASSWORD: "replace-me-via-external-secret-store"
+  STRIPE_API_KEY: "replace-me-via-external-secret-store"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+  namespace: lab-baseline
+  labels:
+    app: payments
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payments
+          # Pinned to an explicit, immutable tag (no :latest).
+          # BEST PRACTICE: pin by digest, e.g.
+          #   image: nginxinc/nginx-unprivileged:1.27-alpine@sha256:<digest>
+          # Get the digest with:
+          #   docker buildx imagetools inspect nginxinc/nginx-unprivileged:1.27-alpine
+          image: nginxinc/nginx-unprivileged:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          # Secrets referenced from the Secret object, not inlined.
+          envFrom:
+            - secretRef:
+                name: payments-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "250m", memory: "128Mi" }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}

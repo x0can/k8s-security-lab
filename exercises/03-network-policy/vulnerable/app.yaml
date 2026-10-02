@@ -1,0 +1,90 @@
+# VULNERABLE baseline — a two-tier app with NO NetworkPolicy at all.
+# By default Kubernetes networking is wide open: ANY pod can reach the database,
+# not just the API. Apply this, then observe that a random pod can curl the DB.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-net
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: lab-net
+  labels:
+    app: api
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+        tier: frontend
+    spec:
+      containers:
+        - name: api
+          image: nginxinc/nginx-unprivileged:1.27-alpine
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: "50m", memory: "32Mi" }
+            limits: { cpu: "100m", memory: "64Mi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: lab-net
+  labels:
+    app: db
+    tier: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+        tier: data
+    spec:
+      containers:
+        - name: db
+          # redis listens on 6379 — stands in for a database tier.
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: "50m", memory: "32Mi" }
+            limits: { cpu: "100m", memory: "64Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: lab-net
+spec:
+  selector:
+    app: db
+  ports:
+    - port: 6379
+      targetPort: 6379
+# PROBLEM: there is no NetworkPolicy, so every pod in every namespace that can
+# resolve this Service can connect to the database.

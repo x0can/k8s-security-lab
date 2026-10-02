@@ -1,0 +1,36 @@
+# HARDENED — least privilege.
+# The app only needs to read ConfigMaps in its OWN namespace, so it gets a
+# namespaced Role with exactly those verbs and nothing more.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app
+  namespace: lab-baseline
+automountServiceAccountToken: false   # mount the token only on pods that need it
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role               # namespaced, not ClusterRole
+metadata:
+  name: app-config-reader
+  namespace: lab-baseline
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]     # read-only, explicit verbs
+    # Optional: restrict to a single named ConfigMap with resourceNames.
+    # resourceNames: ["app-config"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding        # namespaced, not ClusterRoleBinding
+metadata:
+  name: app-config-reader
+  namespace: lab-baseline
+subjects:
+  - kind: ServiceAccount
+    name: app
+    namespace: lab-baseline
+roleRef:
+  kind: Role
+  name: app-config-reader
+  apiGroup: rbac.authorization.k8s.io

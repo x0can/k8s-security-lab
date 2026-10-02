@@ -1,0 +1,33 @@
+# Lab namespaces.
+#
+# `lab-restricted` enforces the Pod Security Standards "restricted" profile via
+# built-in Pod Security admission. Vulnerable pods will be REJECTED here — that
+# rejection is a teaching moment, not a bug.
+#
+# `lab-baseline` only warns, so you can apply a weak pod, see the warning, and
+# then watch it disappear once hardened.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-restricted
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-baseline
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab-net
+  labels:
+    purpose: network-policy-exercise

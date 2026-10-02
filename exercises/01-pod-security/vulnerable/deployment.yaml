@@ -1,0 +1,36 @@
+# VULNERABLE — do not ship this.
+# A web app running as root, privileged, with escalation allowed and the host's
+# namespaces shared. Use it only to practise spotting the problems.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: lab-baseline
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      # PROBLEM: shares the host's process and network namespaces.
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: web
+          image: nginx:latest          # PROBLEM: mutable :latest tag
+          ports:
+            - containerPort: 80
+          securityContext:
+            privileged: true            # PROBLEM: full host access
+            runAsUser: 0                # PROBLEM: runs as root
+            allowPrivilegeEscalation: true
+            readOnlyRootFilesystem: false
+            capabilities:
+              add: ["SYS_ADMIN", "NET_ADMIN"]   # PROBLEM: dangerous caps
+          # PROBLEM: no resource limits -> noisy-neighbour / DoS risk

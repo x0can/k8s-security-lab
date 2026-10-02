@@ -1,0 +1,39 @@
+# HARDENED — default-deny plus a single least-privilege allow rule.
+# Apply these ON TOP of the app in ../vulnerable/app.yaml.
+#
+# NOTE: NetworkPolicy is only ENFORCED if your cluster runs a CNI that supports
+# it. kind's default CNI (kindnet) does NOT. See the exercise README for how to
+# create the lab cluster with Calico so these rules actually take effect.
+---
+# 1. Default-deny ALL ingress in the namespace. Nothing can talk to anything
+#    until explicitly allowed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: lab-net
+spec:
+  podSelector: {}          # selects every pod in the namespace
+  policyTypes:
+    - Ingress
+---
+# 2. Allow ONLY the api tier to reach the db tier on 6379.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-from-api
+  namespace: lab-net
+spec:
+  podSelector:
+    matchLabels:
+      app: db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: frontend
+      ports:
+        - protocol: TCP
+          port: 6379

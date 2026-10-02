@@ -1,0 +1,40 @@
+# VULNERABLE — do not ship this.
+# Secrets baked into the manifest in plain text, a mutable image tag, and
+# alwaysPull disabled. These are the classic supply-chain / secret-handling
+# mistakes a static scanner flags immediately.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+  namespace: lab-baseline
+  labels:
+    app: payments
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      containers:
+        - name: payments
+          image: myorg/payments:latest       # PROBLEM: mutable :latest tag
+          env:
+            # PROBLEM: hard-coded credentials in the manifest. These end up in
+            # git history, `kubectl get deploy -o yaml`, and every backup.
+            - name: DB_PASSWORD
+              value: "S3cr3t-Passw0rd!"
+            # In a real leak this would be a live key (e.g. sk_live_...). Placeholder
+            # used here so this security repo ships no secret-shaped string.
+            - name: STRIPE_API_KEY
+              value: "PLACEHOLDER_STRIPE_KEY_DO_NOT_COMMIT_REAL_KEYS"
+          args:
+            # PROBLEM: secret passed on the command line -> visible in `ps` and
+            # in process listings inside the node.
+            - "--token=PLACEHOLDER_TOKEN_DO_NOT_COMMIT_REAL_TOKENS"
+          securityContext:
+            allowPrivilegeEscalation: true    # PROBLEM
+            runAsUser: 0                       # PROBLEM: root

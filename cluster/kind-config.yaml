@@ -1,0 +1,9 @@
+# kind cluster for the Kubernetes Security Lab.
+# One control-plane + one worker so NetworkPolicy and scheduling behave
+# like a small real cluster.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: k8s-security-lab
+nodes:
+  - role: control-plane
+  - role: worker
